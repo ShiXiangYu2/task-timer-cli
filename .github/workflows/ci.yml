@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      issue_reference: ${{ steps.extract-issue.outputs.issue_reference }}
+      conclusion: ${{ job.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Extract issue reference from PR
+        id: extract-issue
+        if: github.event_name == 'pull_request'
+        run: |
+          # 从 PR body 中提取 "Closes #N" 或 "Fixes #N"
+          ISSUE_REF=$(echo '${{ github.event.pull_request.body }}' | grep -oE '#[0-9]+' | head -1 || echo "")
+          echo "issue_reference=${ISSUE_REF}" >> $GITHUB_OUTPUT
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Report result
+        if: always()
+        run: |
+          echo "Conclusion: ${{ job.status }}"

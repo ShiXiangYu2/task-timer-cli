@@ -1,0 +1,73 @@
+name: Automation
+
+on:
+  issues:
+    types: [opened, labeled, closed]
+  pull_request:
+    types: [opened, closed, synchronize]
+  workflow_run:
+    types: [completed]
+
+jobs:
+  # Issue 生命周期自动化
+  issue-lifecycle:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    steps:
+      - name: Issue opened → add needs-triage
+        if: github.event.action == 'opened'
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --add-label "needs-triage"
+
+  # PR 和 CI 自动化
+  pr-ci-automation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: PR opened → link to issue
+        if: github.event.action == 'opened'
+        run: |
+          echo "PR #${{ github.event.pull_request.number }} opened"
+
+      - name: PR merged → notify
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        run: |
+          echo "PR #${{ github.event.pull_request.number }} merged"
+
+  # CI 结果更新 Issue 状态
+  update-issue-status:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Validate workflow output
+        run: |
+          # 验证 workflow 结论存在
+          if [ -z "${{ github.event.workflow_run.conclusion }}" ]; then
+            echo "ERROR: Missing workflow conclusion"
+            exit 1
+          fi
+
+      - name: Update issue status on success
+        if: github.event.workflow_run.conclusion == 'success'
+        run: |
+          # 从关联的 PR 获取 Issue 引用
+          PR_NUMBER=$(echo '${{ toJson(github.event.workflow_run.pull_requests) }}' | jq -r '.[0].number')
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            gh issue edit $PR_NUMBER \
+              --add-label "done" \
+              --remove-label "in-progress" \
+              --body "<!-- CI passed: $(date) -->"
+            echo "Updated issue #$PR_NUMBER to done"
+          fi
+
+      - name: Update issue status on failure
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          PR_NUMBER=$(echo '${{ toJson(github.event.workflow_run.pull_requests) }}' | jq -r '.[0].number')
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            gh issue edit $PR_NUMBER \
+              --add-label "needs-fix" \
+              --body "<!-- CI failed: $(date) -->"
+            echo "Updated issue #$PR_NUMBER with needs-fix"
+          fi

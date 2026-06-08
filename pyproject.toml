@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "task-timer-cli"
+version = "0.1.0"
+description = "CLI task timer with time tracking and reporting"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+timer = "timer:main"
+
+[project.urls]
+Homepage = "https://github.com/example/task-timer-cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
