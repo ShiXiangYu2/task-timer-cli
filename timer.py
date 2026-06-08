@@ -142,22 +142,131 @@ class TaskTimer:
 
     def status(self) -> dict:
         """Get current status - Issue #4"""
-        raise NotImplementedError("Issue #4 not completed yet")
+        if self.state == TimerState.IDLE:
+            return {"state": "idle"}
+
+        elapsed = 0
+        if self.current_record:
+            elapsed = int((datetime.now() - self.current_record.start_time).total_seconds())
+            elapsed -= int(self.total_paused.total_seconds())
+            if self.state == TimerState.PAUSED and self.pause_time:
+                elapsed -= int((datetime.now() - self.pause_time).total_seconds())
+
+        return {
+            "state": self.state.value,
+            "task": self.current_task,
+            "issue": self.current_issue,
+            "elapsed_seconds": elapsed
+        }
 
     def generate_daily_report(self) -> str:
         """Generate daily report - Issue #4"""
-        raise NotImplementedError("Issue #4 not completed yet")
+        today = datetime.now().date()
+        today_records = [
+            r for r in self.records
+            if r.start_time.date() == today
+        ]
+        return self._format_report("Daily Report", today_records)
 
     def generate_weekly_report(self) -> str:
         """Generate weekly report - Issue #4"""
-        raise NotImplementedError("Issue #4 not completed yet")
+        today = datetime.now()
+        week_ago = today - timedelta(days=7)
+        week_records = [
+            r for r in self.records
+            if week_ago <= r.start_time <= today
+        ]
+        return self._format_report("Weekly Report", week_records)
+
+    def _format_report(self, title: str, records: list) -> str:
+        """Format report from records"""
+        lines = [f"# {title} - {datetime.now().strftime('%Y-%m-%d')}", ""]
+
+        if not records:
+            lines.append("*No records*")
+            return "\n".join(lines)
+
+        total_seconds = sum(r.duration_seconds for r in records)
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        lines.append(f"**Total time**: {hours}h {minutes}m")
+        lines.append("")
+        lines.append("## Tasks")
+        lines.append("")
+
+        for r in sorted(records, key=lambda x: x.start_time):
+            duration = r.duration_seconds
+            h, m = divmod(duration // 60, 60)
+            issue_str = f" (#{r.issue_id})" if r.issue_id else ""
+            lines.append(f"- **{r.task}**{issue_str}: {h}h {m}m")
+
+        return "\n".join(lines)
 
 
 def main():
     """CLI entry point"""
     import argparse
-    print("Task Timer CLI - Run tests first")
-    print("Issue #1-4 not completed yet")
+
+    parser = argparse.ArgumentParser(description="Task Timer CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # start command
+    start_parser = subparsers.add_parser("start", help="Start a timer")
+    start_parser.add_argument("task", help="Task name")
+    start_parser.add_argument("--issue", help="Issue ID")
+
+    # pause command
+    subparsers.add_parser("pause", help="Pause the timer")
+
+    # resume command
+    subparsers.add_parser("resume", help="Resume the timer")
+
+    # stop command
+    subparsers.add_parser("stop", help="Stop the timer")
+
+    # status command
+    subparsers.add_parser("status", help="Show timer status")
+
+    # report command
+    report_parser = subparsers.add_parser("report", help="Generate report")
+    report_parser.add_argument("period", choices=["today", "week"], help="Report period")
+
+    args = parser.parse_args()
+    timer = TaskTimer()
+
+    if args.command == "start":
+        timer.start(args.task, args.issue)
+        print(f"Started: {args.task}")
+        if args.issue:
+            print(f"Issue: #{args.issue}")
+
+    elif args.command == "pause":
+        timer.pause()
+        print("Paused")
+
+    elif args.command == "resume":
+        timer.resume()
+        print("Resumed")
+
+    elif args.command == "stop":
+        timer.stop()
+        print("Stopped")
+
+    elif args.command == "status":
+        status = timer.status()
+        if status["state"] == "idle":
+            print("No timer running")
+        else:
+            elapsed = status["elapsed_seconds"]
+            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+            print(f"{status['task']}: {h:02d}:{m:02d}:{s:02d}")
+
+    elif args.command == "report":
+        if args.period == "today":
+            print(timer.generate_daily_report())
+        else:
+            print(timer.generate_weekly_report())
 
 
 if __name__ == "__main__":
