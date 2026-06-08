@@ -118,12 +118,21 @@ class TaskTimer:
 
     def stop(self):
         """Stop the current timer and save record - Issue #3"""
-        # Minimal implementation for Issue #1 - just reset without saving
-        # Full implementation in Issue #3
         if self.state == TimerState.IDLE:
             raise ValueError("No timer running")
 
-        # Just reset state without saving (Issue #3 will add full functionality)
+        # If paused, add final pause duration
+        if self.state == TimerState.PAUSED and self.pause_time:
+            self.total_paused += datetime.now() - self.pause_time
+
+        # Save the record
+        if self.current_record:
+            self.current_record.end_time = datetime.now()
+            self.current_record.paused_duration = self.total_paused
+            self.records.append(self.current_record)
+            self._save_records()
+
+        # Reset state
         self.state = TimerState.IDLE
         self.current_task = None
         self.current_issue = None
