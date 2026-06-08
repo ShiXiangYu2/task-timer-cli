@@ -102,11 +102,19 @@ class TaskTimer:
 
     def pause(self):
         """Pause the current timer - Issue #2"""
-        raise NotImplementedError("Issue #2 not completed yet")
+        if self.state != TimerState.RUNNING:
+            raise ValueError("No timer running")
+        self.state = TimerState.PAUSED
+        self.pause_time = datetime.now()
 
     def resume(self):
         """Resume a paused timer - Issue #2"""
-        raise NotImplementedError("Issue #2 not completed yet")
+        if self.state != TimerState.PAUSED:
+            raise ValueError("Timer is not paused")
+        if self.pause_time:
+            self.total_paused += datetime.now() - self.pause_time
+        self.state = TimerState.RUNNING
+        self.pause_time = None
 
     def stop(self):
         """Stop the current timer and save record - Issue #3"""
